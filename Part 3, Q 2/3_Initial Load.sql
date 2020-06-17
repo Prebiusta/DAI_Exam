@@ -2,11 +2,20 @@
 -- ************ INSERTING AND FIXING DATA IN STAGE TABLES ************
 -- *******************************************************************
 
+DELETE FROM StagingDatabase.staging.stage_f_sales;
+DELETE FROM StagingDatabase.staging.stage_dim_product
+DELETE FROM StagingDatabase.staging.stage_dim_customer
+DELETE FROM AdventureWorks_DW.star_schema.d_product
+DELETE FROM AdventureWorks_DW.star_schema.d_price_range
+DELETE FROM AdventureWorks_DW.star_schema.d_date
+DELETE FROM AdventureWorks_DW.star_schema.d_customer
+DELETE FROM AdventureWorks_DW.star_schema.f_sales
+
 -- _______________________ DATE _______________________
 
 --This statement inserts attribute values unto staging dimension table stage_dim_date
-DECLARE @StartDate DATETIME = '2011-05-31';
-DECLARE @EndDate DATETIME = '2014-06-30';
+DECLARE @StartDate DATETIME = (SELECT MIN(OrderDate) FROM AdventureWorks2017.Sales.SalesOrderHeader);
+DECLARE @EndDate DATETIME = (SELECT MAX(OrderDate) FROM AdventureWorks2017.Sales.SalesOrderHeader);
 
 WHILE @StartDate <= @EndDate
     BEGIN

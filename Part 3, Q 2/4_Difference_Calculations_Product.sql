@@ -2,6 +2,24 @@
 -- ************************************* NEW PRODUCTS ***************************************
 -- ******************************************************************************************
 
+-- Add new dates in D_Date if missing
+DECLARE @StartDate DATETIME = (SELECT MAX(Date)
+                               FROM AdventureWorks_DW.star_schema.d_date);
+DECLARE @EndDate DATETIME = (SELECT MAX(OrderDate)
+                             FROM AdventureWorks2017.Sales.SalesOrderHeader);
+
+WHILE @StartDate <= @EndDate
+    BEGIN
+        INSERT INTO AdventureWorks_DW.star_schema.d_date (date,
+                                                          day_name,
+                                                          month_name)
+        SELECT @StartDate,
+               DATENAME(weekday, @StartDate),
+               DATENAME(month, @StartDate);
+
+        SET @StartDate = DATEADD(dd, 1, @StartDate);
+    END;
+
 -- Search and insert newly added product into staging added product table
 INSERT INTO StagingDatabase.staging.stage_dim_product_added (product_id, name, valid_from, valid_to, price)
 SELECT ProductID, Name, SellStartDate, SellEndDate, ListPrice
@@ -54,20 +72,28 @@ WHERE product_id in (
 
 -- Inserting updated rows into the temporary table to handle changes
 INSERT INTO StagingDatabase.staging.stage_dim_product_changed
-    (product_id, name, price) (SELECT ProductID, Name, ListPrice
+    (product_id, name, price) (SELECT ProductID,
+                                      Name,
+                                      price_range_id = (SELECT dimension_price_range_id
+                                                        FROM AdventureWorks_DW.star_schema.d_price_range
+                                                        WHERE ListPrice BETWEEN start_price AND end_price)
                                FROM AdventureWorks2017.Production.Product
                                    EXCEPT
-                               SELECT product_id, name, stage_dim_product.price
-                               FROM StagingDatabase.staging.stage_dim_product
+                               SELECT product_id, name, d_product.price_range_id
+                               FROM AdventureWorks_DW.star_schema.d_product
                                    EXCEPT (
-                                        SELECT ProductID, Name, ListPrice
+                                        SELECT ProductID,
+                                               Name,
+                                               price_range_id = (SELECT dimension_price_range_id
+                                                                 FROM AdventureWorks_DW.star_schema.d_price_range
+                                                                 WHERE ListPrice BETWEEN start_price AND end_price)
                                         FROM AdventureWorks2017.Production.Product
                                         WHERE productID IN
                                               (SELECT productID
                                                FROM AdventureWorks2017.Production.Product
                                                    EXCEPT
                                                SELECT product_id
-                                               FROM StagingDatabase.staging.stage_dim_product)
+                                               FROM AdventureWorks_DW.star_schema.d_product)
                                     ));
 
 -- Update valid_to attribute to '9999-12-31'
@@ -93,10 +119,13 @@ SET valid_to = DATEADD(dd, -1, GETDATE())
 WHERE product_id in (SELECT product_id FROM StagingDatabase.staging.stage_dim_product_changed);
 
 -- Insert new product to Data Warehouse
-INSERT INTO AdventureWorks_DW.star_schema.d_product
-SELECT *
+INSERT INTO AdventureWorks_DW.star_schema.d_product (product_id, price_range_id, name, valid_from, valid_to)
+SELECT product_id, price_range_id, name, valid_from, valid_to
 FROM StagingDatabase.staging.stage_dim_product_changed;
 
--- Delete data in temporary table
+-- Delete data in temporary tables
 DELETE
 FROM StagingDatabase.staging.stage_dim_product_changed;
+
+DELETE
+FROM StagingDatabase.staging.stage_dim_product_added;

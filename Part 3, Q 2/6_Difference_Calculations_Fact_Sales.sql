@@ -16,6 +16,10 @@ INSERT INTO StagingDatabase.staging.stage_f_sales
      WHERE OnlineOrderFlag = 1
        AND OrderDate > @LAST_UPDATE);
 
+
+-- // Product id: 770
+
+
 -- Find corresponding surrogate keys.
 -- ***************************** Customer *****************************
 UPDATE StagingDatabase.staging.stage_f_sales
@@ -49,3 +53,5 @@ FROM StagingDatabase.staging.temp_f_sales;
 UPDATE StagingDatabase.staging.LastUpdate
 SET lastUpdate = GETDATE()
 WHERE lastUpdate = @LAST_UPDATE;
+
+DELETE FROM StagingDatabase.staging.temp_f_sales
